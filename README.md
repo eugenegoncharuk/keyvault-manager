@@ -58,6 +58,16 @@ To build the macOS `.app` bundle locally:
    ```
 This will generate `KeyVault Manager.app` in your project folder, which you can drag to your Applications folder or distribute.
 
+## Running App
+When an application gets downloaded from any source other than those that Apple seems suited, the application gets an extended attribute "com.apple.Quarantine". This triggers the message: "<application> is damaged and can't be opened. You should move it to the Bin."
+
+Remove the attribute and you can launch the application.
+To do this, open a console and type:
+$ xattr -c <path/to/application.app>
+
+Now you can start the App.
+
+
 ## GitHub Actions Release
 
 This repository is configured with a GitHub Actions workflow that automatically builds and releases the macOS `.app` bundle whenever a new tag (e.g., `v1.0.0`) is pushed to the repository. The release will contain a `.tar.gz` archive with the built application, which can be downloaded directly from the GitHub Releases page.
