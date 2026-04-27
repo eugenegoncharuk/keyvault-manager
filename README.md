@@ -59,7 +59,7 @@ To build the macOS `.app` bundle locally:
 This will generate `KeyVault Manager.app` in your project folder, which you can drag to your Applications folder or distribute.
 
 ## Running App
-When an application gets downloaded from any source other than those that Apple seems suited, the application gets an extended attribute "com.apple.Quarantine". This triggers the message: "<application> is damaged and can't be opened. You should move it to the Bin."
+When an application gets downloaded from any source other than those that Apple seems suited, the application gets an extended attribute "com.apple.Quarantine". This triggers the message: "<application> is damaged and can't be opened..."
 
 Remove the attribute and you can launch the application.
 To do this, open a console and type:
