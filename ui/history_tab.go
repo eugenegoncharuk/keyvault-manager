@@ -16,8 +16,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 	secretEntry := widget.NewEntry()
 	secretEntry.PlaceHolder = "Enter secret name…"
 
-	statusLabel := widget.NewLabel("")
-	statusLabel.TextStyle = fyne.TextStyle{Italic: true}
+	statusLabel := newStatusLine(w)
 
 	var versions []azure.SecretVersion
 
@@ -81,8 +80,8 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 	valuePreview := widget.NewRichText()
 	valuePreview.Wrapping = fyne.TextWrapBreak
 
-	previewStatus := widget.NewLabel("← Select a version to preview its value")
-	previewStatus.TextStyle = fyne.TextStyle{Italic: true}
+	previewStatus := newStatusLine(w)
+	previewStatus.SetText("← Select a version to preview its value")
 
 	copyPreviewBtn := widget.NewButton("📋  Copy", nil)
 	copyPreviewBtn.Disable()
@@ -113,7 +112,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 			value, err := azure.GetSecretByVersion(vault, secret, v.Version)
 			// Widget setters are goroutine-safe in Fyne v2.
 			if err != nil {
-				previewStatus.SetText(fmt.Sprintf("❌ %v", err))
+				previewStatus.SetError("%v", err)
 				return
 			}
 			previewText = value
@@ -154,7 +153,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 			vers, err := azure.ListSecretVersions(vault, secret)
 			loadBtn.Enable()
 			if err != nil {
-				statusLabel.SetText(fmt.Sprintf("❌ %v", err))
+				statusLabel.SetError("%v", err)
 				return
 			}
 			versions = vers
@@ -174,7 +173,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 	top := container.NewVBox(
 		widget.NewSeparator(),
 		container.NewPadded(secretRow),
-		container.NewPadded(statusLabel),
+		container.NewPadded(statusLabel.obj),
 		widget.NewSeparator(),
 	)
 
@@ -182,7 +181,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 		nil, nil,
 		widget.NewLabel("Value:"),
 		copyPreviewBtn,
-		previewStatus,
+		previewStatus.obj,
 	)
 	previewPanel := container.NewBorder(
 		container.NewPadded(previewHeader),

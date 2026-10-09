@@ -43,8 +43,7 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 	versionLabel := widget.NewLabel("Version: —")
 	versionLabel.TextStyle = fyne.TextStyle{Monospace: true}
 
-	statusLabel := widget.NewLabel("")
-	statusLabel.TextStyle = fyne.TextStyle{Italic: true}
+	statusLabel := newStatusLine(w)
 
 	dirtyLabel := widget.NewLabel("")
 	dirtyLabel.TextStyle = fyne.TextStyle{Bold: true}
@@ -99,7 +98,7 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 			// Widget setters are goroutine-safe in Fyne v2.
 			readBtn.Enable()
 			if err != nil {
-				statusLabel.SetText(fmt.Sprintf("❌ %v", err))
+				statusLabel.SetError("%v", err)
 				return
 			}
 			// applyRead touches multiple widgets — all safe from goroutine.
@@ -191,7 +190,7 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 				pushBtn.Enable()
 
 				if err != nil {
-					statusLabel.SetText(fmt.Sprintf("❌ %v", err))
+					statusLabel.SetError("%v", err)
 					// Show dialog via a zero-size overlay window trick is not
 					// available in Fyne v2.5 without fyne.Do.  Instead we
 					// surface the full error in the status label which is always
@@ -252,7 +251,7 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 		nil, nil,
 		versionLabel,
 		dirtyLabel,
-		statusLabel,
+		statusLabel.obj,
 	)
 
 	editorHeader := container.NewBorder(

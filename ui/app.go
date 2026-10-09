@@ -24,8 +24,7 @@ func Run(a fyne.App) {
 	vaultSelect := widget.NewSelect(nil, nil)
 	vaultSelect.PlaceHolder = "Select vault…"
 
-	statusBar := widget.NewLabel("")
-	statusBar.TextStyle = fyne.TextStyle{Italic: true}
+	statusBar := newStatusLine(w)
 
 	var loadedSubs []azure.Subscription
 
@@ -39,7 +38,7 @@ func Run(a fyne.App) {
 			vaults, err := azure.ListVaults()
 			// Widget setters are goroutine-safe.
 			if err != nil {
-				statusBar.SetText(fmt.Sprintf("❌ Error loading vaults: %v", err))
+				statusBar.SetError("Error loading vaults: %v", err)
 				vaultSelect.PlaceHolder = "Failed to load vaults"
 				vaultSelect.Refresh()
 				return
@@ -63,7 +62,7 @@ func Run(a fyne.App) {
 				go func(id string) {
 					err := azure.SetSubscription(id)
 					if err != nil {
-						statusBar.SetText(fmt.Sprintf("❌ Set subscription failed: %v", err))
+						statusBar.SetError("Set subscription failed: %v", err)
 						return
 					}
 					refreshVaults()
@@ -87,7 +86,7 @@ func Run(a fyne.App) {
 		widget.NewLabel("   Key Vault:"),
 		vaultSelect,
 	)
-	header := container.NewBorder(nil, nil, selectorRow, nil, statusBar)
+	header := container.NewBorder(nil, nil, selectorRow, nil, statusBar.obj)
 
 	w.SetContent(container.NewBorder(header, nil, nil, nil, tabs))
 
@@ -96,7 +95,7 @@ func Run(a fyne.App) {
 		subs, err := azure.ListSubscriptions()
 		// Widget setters are goroutine-safe.
 		if err != nil {
-			statusBar.SetText("❌ Failed to load subscription config: " + err.Error())
+			statusBar.SetError("Failed to load subscription config: %v", err)
 			subSelect.PlaceHolder = "Config error"
 			subSelect.Refresh()
 			return
