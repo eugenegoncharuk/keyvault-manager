@@ -26,11 +26,27 @@ jobs:
       - name: Install dependencies
         run: |
           go mod download
-          go install fyne.io/fyne/v2/cmd/fyne@latest
+          go install fyne.io/tools/cmd/fyne@latest
 
+      # App name, ID and icon come from FyneApp.toml, so the output is always
+      # "KeyVault Manager.app". Tags like "v1.2.3" or "v.1.2.3" set the version.
       - name: Build and Package App
         run: |
-          fyne package -os darwin -icon Icon.png
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION#.}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            fyne package -os darwin --app-version "$VERSION"
+          else
+            fyne package -os darwin
+          fi
+
+      # Guard against shipping a stale bundle: the binary must have been built
+      # from this repository's module.
+      - name: Verify Fresh Build
+        run: |
+          MODULE="$(go list -m)"
+          go version -m "KeyVault Manager.app/Contents/MacOS/keyvault-manager" | grep -q "path[[:space:]]*$MODULE\$" \
+            || { echo "Packaged binary was not built from $MODULE"; exit 1; }
 
       # Ad-hoc sign the whole bundle. Without this the bundle only carries the
       # Go linker's binary signature, and Gatekeeper reports the downloaded

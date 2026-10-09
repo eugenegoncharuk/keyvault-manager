@@ -50,7 +50,7 @@ Because KeyVault Manager uses Azure CLI commands under the hood, you need to hav
 To build the macOS `.app` bundle locally:
 1. Install the `fyne` CLI tool:
    ```bash
-   go install fyne.io/fyne/v2/cmd/fyne@latest
+   go install fyne.io/tools/cmd/fyne@latest
    ```
 2. Package the app:
    ```bash
