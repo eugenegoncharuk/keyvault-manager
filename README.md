@@ -63,7 +63,9 @@ When an application gets downloaded from any source other than those that Apple 
 
 Remove the attribute and you can launch the application.
 To do this, open a console and type:
-$ xattr -c <path/to/application.app>
+```bash
+xattr -cr "/Applications/KeyVault Manager.app"
+```
 
 Now you can start the App.
 

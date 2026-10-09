@@ -31,7 +31,16 @@ jobs:
       - name: Build and Package App
         run: |
           fyne package -os darwin -icon Icon.png
-          
+
+      # Ad-hoc sign the whole bundle. Without this the bundle only carries the
+      # Go linker's binary signature, and Gatekeeper reports the downloaded
+      # app as "damaged". Users still need to clear the quarantine attribute
+      # (see README) since the app is not notarized.
+      - name: Ad-hoc Sign App
+        run: |
+          codesign --force --deep --sign - "KeyVault Manager.app"
+          codesign --verify --deep --strict --verbose=2 "KeyVault Manager.app"
+
       - name: Archive Application
         run: |
           tar -czf KeyVault-Manager-macOS.tar.gz "KeyVault Manager.app"
