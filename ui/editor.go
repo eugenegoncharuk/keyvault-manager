@@ -84,9 +84,8 @@ func (e *SyntaxEditor) Body() fyne.CanvasObject {
 	return e.wrapper
 }
 
-// SetText replaces the editor content.
-// Safe to call from any goroutine (delegates to widget.Entry.SetText which is
-// goroutine-safe in Fyne v2).
+// SetText replaces the editor content. Must be called on the Fyne main
+// goroutine (use fyne.Do from background work).
 func (e *SyntaxEditor) SetText(text string) {
 	e.entry.SetText(text)
 	// If already in preview mode, refresh the highlights too.

@@ -35,7 +35,7 @@ Because KeyVault Manager uses Azure CLI commands under the hood, you need to hav
    cd keyvault-manager
    ```
 
-2. **Install dependencies** (assuming Go 1.21+ is installed):
+2. **Install dependencies** (assuming Go 1.22+ is installed):
    ```bash
    go mod download
    ```

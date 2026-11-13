@@ -19,6 +19,9 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 	statusLabel := newStatusLine(w)
 
 	var versions []azure.SecretVersion
+	// The vault/secret the current version list belongs to. Row clicks use
+	// these, not the live inputs, which may have been edited since loading.
+	var loadedVault, loadedSecret string
 
 	// ── Version table ──────────────────────────────────────────────────────
 	versionTable := widget.NewTable(
@@ -87,6 +90,7 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 	copyPreviewBtn.Disable()
 
 	var previewText string
+	var previewSeq int // bumped on each preview request; main goroutine only
 
 	copyPreviewBtn.OnTapped = func() {
 		if previewText == "" {
@@ -102,25 +106,32 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 			return
 		}
 		v := versions[id.Row-1]
-		vault := vaultSelect.Selected
-		secret := secretEntry.Text
+		vault, secret := loadedVault, loadedSecret
 
 		previewStatus.SetText(fmt.Sprintf("⏳ Loading version %s…", v.Version))
 		copyPreviewBtn.Disable()
 
+		previewSeq++
+		seq := previewSeq
 		go func() {
 			value, err := azure.GetSecretByVersion(vault, secret, v.Version)
-			// Widget setters are goroutine-safe in Fyne v2.
-			if err != nil {
-				previewStatus.SetError("%v", err)
-				return
-			}
-			previewText = value
-			valuePreview.Segments = HighlightContent(value)
-			valuePreview.Refresh()
-			copyPreviewBtn.Enable()
-			ts := v.Updated.UTC().Format("2006-01-02 15:04:05 UTC")
-			previewStatus.SetText(fmt.Sprintf("Version %s  ·  %s", v.Version, ts))
+			segs := HighlightContent(value)
+			fyne.Do(func() {
+				// Ignore results superseded by a later row click.
+				if seq != previewSeq {
+					return
+				}
+				if err != nil {
+					previewStatus.SetError("%v", err)
+					return
+				}
+				previewText = value
+				valuePreview.Segments = segs
+				valuePreview.Refresh()
+				copyPreviewBtn.Enable()
+				ts := v.Updated.UTC().Format("2006-01-02 15:04:05 UTC")
+				previewStatus.SetText(fmt.Sprintf("Version %s  ·  %s", v.Version, ts))
+			})
 		}()
 	}
 
@@ -149,16 +160,21 @@ func NewHistoryTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject 
 		previewStatus.SetText("← Select a version to preview its value")
 		copyPreviewBtn.Disable()
 
+		previewSeq++ // invalidate any in-flight preview of the old list
 		go func() {
 			vers, err := azure.ListSecretVersions(vault, secret)
-			loadBtn.Enable()
-			if err != nil {
-				statusLabel.SetError("%v", err)
-				return
-			}
-			versions = vers
-			versionTable.Refresh()
-			statusLabel.SetText(fmt.Sprintf("✅ %d version(s) for '%s'", len(vers), secret))
+			fyne.Do(func() {
+				loadBtn.Enable()
+				if err != nil {
+					statusLabel.SetError("%v", err)
+					return
+				}
+				versions = vers
+				loadedVault, loadedSecret = vault, secret
+				versionTable.UnselectAll()
+				versionTable.Refresh()
+				statusLabel.SetText(fmt.Sprintf("✅ %d version(s) for '%s'", len(vers), secret))
+			})
 		}()
 	}
 

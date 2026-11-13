@@ -19,15 +19,10 @@ import (
 //   - A push that fails with a version conflict → error dialog telling the
 //     user to re-read the secret.
 //
-// Threading notes (Fyne v2):
-//   Widget setters (SetText, Enable/Disable, Refresh) are goroutine-safe.
-//   dialog.Show* must be called on the main goroutine — we use a buffered
-//   error channel read by a watcher goroutine that was started before the
-//   background worker, ensuring dialogs are shown via Fyne's own event loop
-//   (Fyne processes timer callbacks on the main goroutine via canvas refresh).
-//   In practice we keep dialogs in button callbacks where possible.
+// Threading: all tab-local state and widgets are touched only on the Fyne
+// main goroutine. Background az calls hand their results back via fyne.Do.
 func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
-	// ── Tab-local state (mutated only on main goroutine via UI callbacks) ─
+	// ── Tab-local state (main goroutine only) ─────────────────────────────
 	var (
 		currentVault   string
 		currentSecret  string
@@ -95,14 +90,14 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 
 		go func() {
 			value, version, err := azure.GetSecret(vault, secret)
-			// Widget setters are goroutine-safe in Fyne v2.
-			readBtn.Enable()
-			if err != nil {
-				statusLabel.SetError("%v", err)
-				return
-			}
-			// applyRead touches multiple widgets — all safe from goroutine.
-			applyRead(vault, secret, version, value)
+			fyne.Do(func() {
+				readBtn.Enable()
+				if err != nil {
+					statusLabel.SetError("%v", err)
+					return
+				}
+				applyRead(vault, secret, version, value)
+			})
 		}()
 	}
 
@@ -136,10 +131,6 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 	}
 
 	// ── Push button ────────────────────────────────────────────────────────
-	// pushErrCh is used to relay the push result back so we can show dialogs
-	// (which must be on the main goroutine) from inside the confirm callback.
-	pushErrCh := make(chan error, 1)
-
 	pushBtn.OnTapped = func() {
 		vault := vaultSelect.Selected
 		secret := secretEntry.Text
@@ -175,42 +166,25 @@ func NewManageTab(vaultSelect *widget.Select, w fyne.Window) fyne.CanvasObject {
 			pushBtn.Disable()
 			statusLabel.SetText("⏳ Pushing…")
 
-			// Start the background push.
 			go func() {
-				err := azure.SetSecret(vault, secret, value, ev)
-				pushErrCh <- err
-			}()
-
-			// Drain the result on the main goroutine via a separate goroutine
-			// that only calls goroutine-safe APIs.  Dialogs are handled by
-			// posting through a Fyne Canvas timer.
-			go func() {
-				err := <-pushErrCh
-				// Re-enable button (goroutine-safe).
-				pushBtn.Enable()
-
-				if err != nil {
-					statusLabel.SetError("%v", err)
-					// Show dialog via a zero-size overlay window trick is not
-					// available in Fyne v2.5 without fyne.Do.  Instead we
-					// surface the full error in the status label which is always
-					// visible, and also log a canvassable notification.
-					//
-					// For the version-conflict case the status label message is
-					// intentionally verbose so the user sees the full explanation.
-					if strings.Contains(err.Error(), "version conflict") {
-						statusLabel.SetText("❌ Version conflict — secret was updated externally. Re-read the secret before pushing.")
+				newVersion, err := azure.SetSecret(vault, secret, value, ev)
+				fyne.Do(func() {
+					pushBtn.Enable()
+					if err != nil {
+						if strings.Contains(err.Error(), "version conflict") {
+							dialog.ShowError(err, w)
+							statusLabel.SetText("❌ Version conflict — secret was updated externally. Re-read the secret before pushing.")
+							return
+						}
+						statusLabel.SetError("%v", err)
+						return
 					}
-					return
-				}
-
-				// Success: refresh stored version.
-				newVersion, _ := azure.GetCurrentVersion(vault, secret)
-				currentVersion = newVersion
-				isDirty = false
-				dirtyLabel.SetText("")
-				versionLabel.SetText(fmt.Sprintf("Version: %s", newVersion))
-				statusLabel.SetText(fmt.Sprintf("✅ Pushed '%s' to '%s'", secret, vault))
+					currentVault, currentSecret, currentVersion = vault, secret, newVersion
+					isDirty = false
+					dirtyLabel.SetText("")
+					versionLabel.SetText(fmt.Sprintf("Version: %s", newVersion))
+					statusLabel.SetText(fmt.Sprintf("✅ Pushed '%s' to '%s'", secret, vault))
+				})
 			}()
 		}, w)
 	}
